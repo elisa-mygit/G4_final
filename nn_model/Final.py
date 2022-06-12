@@ -64,8 +64,8 @@ path = os.getcwd()+ "/data/data_Y2.csv"
 data = data = pd.read_csv(path)
 
 classifier = pred_cat()
-cat = classifier.get_category(ex1)
-print("職稱: {} \n分類: {}".format(ex1, cat))
+cat = classifier.get_category(data)
+
 
 
 
