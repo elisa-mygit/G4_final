@@ -3,9 +3,9 @@ import pickle
 import pandas as pd
 import numpy as np
 import os
+import csv
 from keras.models import Sequential
-from keras.layers import Dense, Dropout
-
+from keras.layers import Dense
 
 def create_model3():
     model = Sequential()
@@ -23,6 +23,64 @@ class pred_cat():
         with open(path, 'rb') as f:
             self.model = pickle.load(f)
     
+    def get_lcvar(data):
+        path = os.getcwd() + "/公開公司資訊.csv" #需改動資料位置
+        stock = pd.read_csv(path)
+        comp_name = list(stock.公司名稱)
+        comp_abr = list(stock.公司名稱)
+        comp = list(data.company)
+
+        lc_var = []
+        for c in comp:
+            ans = 0
+            try:
+                for lc in comp_name:
+                    if c in lc:
+                        ans = 1
+                    elif lc in c:
+                        ans = 1
+                    else: 
+                        pass
+            except:
+                pass
+
+            try:
+                for lc in comp_abr:
+                    if c in lc:
+                        ans = 1
+                    elif lc in c:
+                        ans = 1
+                    else: 
+                        pass
+            except:
+                pass
+
+        lc_var.append(ans)
+        data["lc_var"] = lc_var
+        return data   
+    
+    def get_creditinfo(self, data, credit_file):
+        '''若徵信資料為另一檔案(credit_file)'''
+        credit_file_list=[]
+        with open(credit_file) as csvfile:
+            csvDictReader = csv.DictReader(csvfile)
+            for row in csvDictReader:
+                credit_file_list.append(row['ssn'])
+        
+        data_ssn_list=[]
+
+        for row in data:
+            data_ssn_list.append(row['ssn'])
+
+        credit_info=[]
+        for i in range(0,len(data_ssn_list)):
+            if data_ssn_list[i] in credit_file_list:
+                credit_info.append('1')
+            else:
+                credit_info.append('0')
+        
+        data["credit_info"] = credit_info
+    
     def change_type(self, data):
         if type(data) is list:
             X = pd.DataFrame(data).T
@@ -37,6 +95,12 @@ class pred_cat():
 
     def get_category(self, X):
         model = self.model
+
+        X = self.get_lcvar(X)
+        try: 
+            X =  self.get_creditinfo(X)
+        except:
+            pass    
         X = self.change_type(X)
         X = self.extract_var(X)
 
@@ -65,8 +129,3 @@ data = data = pd.read_csv(path)
 
 classifier = pred_cat()
 cat = classifier.get_category(data)
-
-
-
-
-# %%
