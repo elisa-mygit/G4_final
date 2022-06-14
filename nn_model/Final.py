@@ -4,25 +4,31 @@ import pandas as pd
 import numpy as np
 import os
 import csv
+from sklearn.preprocessing import StandardScaler
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
 
 def create_model3():
     model = Sequential()
-    model.add(Dense(66, input_shape = (12,), activation = 'relu'))
-    model.add(Dense(54, activation = 'elu'))
-    model.add(Dense(32, activation = 'elu'))
-    model.add(Dense(10, activation = 'elu'))
+    model.add(Dense(66, input_shape = (19,), activation = 'relu'))
+    model.add(Dense(48, activation = 'elu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(48, activation = 'elu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(48, activation = 'elu'))
     model.add(Dense(5, activation = "softmax"))
     model.compile(loss="sparse_categorical_crossentropy", optimizer='RMSProp',metrics="accuracy")
     return model
 
 class pred_cat():
 
-    def __init__(self, path = os.getcwd() + "/nn_model.pkl"):
-        with open(path, 'rb') as f:
-            self.model = pickle.load(f)
-    
+    def __init__(self, path1 = os.getcwd() + "/nn_ESUN.pkl", path2 = os.getcwd() + "/nn_FUGLE.pkl"): #需改動資料位置
+        with open(path1, 'rb') as f:
+            self.model1 = pickle.load(f)
+        
+        with open(path2, 'rb') as f:
+            self.model2 = pickle.load(f)
+
     def get_lcvar(data):
         path = os.getcwd() + "/公開公司資訊.csv" #需改動資料位置
         stock = pd.read_csv(path)
@@ -82,31 +88,22 @@ class pred_cat():
         data["credit_info"] = credit_info
     
     def change_type(self, data):
+        sc = StandardScaler()
         if type(data) is list:
             X = pd.DataFrame(data).T
+            X = sc.fit_transform(data)
         else:
-            X = data
+            X = sc.fit_transform(data)
         return X
     
     def extract_var(self, data):
-        feat = ['sex', 'age', 'hasOtherComAccount', 'incomeYear', 'totalWealth', 'expInvestment', 'srcCapital', 'quotaCredit', 'category_rule_base', 'credit_info', 'lc_var', 'category_insurance']
+        feat = feat =['sex', 'age', 'occupation', 'isReject', 'hasOtherComAccount', 'eduLevel', 'incomeYear', 'totalWealth', 'expInvestment', 'yrsInvestment', 'frqInvestment', 'srcCapital', 'quotaCredit', 'category_job1111', 'category_insurance', 'category_rule_base', 'company_level', 'credit_info', 'lc_var']
         X = data[feat]
         return X
-
-    def get_category(self, X):
-        model = self.model
-
-        X = self.get_lcvar(X)
-        try: 
-            X =  self.get_creditinfo(X)
-        except:
-            pass    
-        X = self.change_type(X)
-        X = self.extract_var(X)
-
-        pred_cat = model.predict(X)
-        res = pred_cat.tolist()
-        for i in range(len(res)):
+    
+    def change_y(self, y):
+        for i in range(len(y)):
+            res = y.tolist()
             if res[i] == 0:
                 res[i] = '0-10萬'
             elif res[i] ==1:
@@ -117,8 +114,35 @@ class pred_cat():
                 res[i] = '50-100萬'
             else:
                 pass
-
         return res
+
+    def get_category(self, X):
+        model1 = self.model1
+        model2 = self.model2
+        X = self.get_lcvar(X)
+        try: 
+            X =  self.get_creditinfo(X)
+        except:
+            pass    
+        X = self.change_type(X)
+        #分成玉證＆FUGLE
+        data_Y = X.loc[X['source'] != "FUGLE"]
+        data_F = X.loc[X['source'] == "FUGLE"]
+        
+        X_Y = self.extract_var(data_Y)
+        X_F = self.extract_var(data_F)
+
+        pred_catY = model1.predict(X_Y)
+        pred_catF = model2.predict(X_F)
+
+        pred_catY = self.change_y(pred_catY)
+        pred_catF = self.change_y(pred_catF)
+
+        data_Y.pred_cat = pred_catY
+        data_F.pred_cat = pred_catF
+        final = pd.concat([data_Y, data_F], axis=0)
+
+        return final
 
 
 #%%
